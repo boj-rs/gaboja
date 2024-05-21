@@ -51,7 +51,27 @@ fn main() -> anyhow::Result<()> {
 
     let mut state = GlobalState::new()?;
 
-    // TODO: Read and execute .bojrc before entering the loop
+    // Read and execute .bojrc before entering the loop
+    // TODO: Attach indicatif progress bar
+    let mut bojrc = std::env::current_dir()?;
+    bojrc.push(".bojrc");
+    if let Ok(bojrc_content) = std::fs::read_to_string(bojrc) {
+        for (lineno, line) in bojrc_content.lines().enumerate() {
+            if line.is_empty() { continue; }
+            match line.parse::<InputCommand>() {
+                Ok(cmd) => {
+                    if let Err(err) = state.execute(&cmd) {
+                        println!(".bojrc execution error at line {}: {}", lineno + 1, err);
+                        break;
+                    }
+                }
+                Err(err) => {
+                    println!(".bojrc parse error at line {}: {}", lineno + 1, err);
+                    break;
+                }
+            }
+        }
+    }
 
     loop {
         if let Ok(cmd) = Input::<InputCommand>::with_theme(&ColorfulTheme::default())
