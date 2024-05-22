@@ -23,7 +23,7 @@ pub(crate) fn run_silent(cmd: &str) -> anyhow::Result<Option<String>> {
     Ok(stderr)
 }
 
-/// Runs the given command and let the user interact with it.
+/// Runs the given command and lets the user interact with it.
 pub(crate) fn run_interactive(cmd: &str) -> anyhow::Result<()> {
     let mut child = spawn_cmd(cmd).stdin(Stdio::inherit()).stdout(Stdio::inherit()).stderr(Stdio::inherit()).spawn()?;
     child.wait()?;
@@ -45,6 +45,7 @@ pub(crate) fn run_with_input_timed(cmd: &str, input: &str, timeout: Duration) ->
     let start_time = Instant::now();
     let mut stdin = child.stdin.take().unwrap();
     write!(stdin, "{}", input)?;
+    drop(stdin);
     let mut stdout = child.stdout.take().unwrap();
     let mut stderr = child.stderr.take().unwrap();
     let Some(status) = child.wait_timeout(timeout)? else {

@@ -123,10 +123,12 @@ impl Browser {
         lang_found_elem.click()?;
 
         // Set source: https://stackoverflow.com/a/57621139/4595904 simplified
-        let codemirror_elem = driver.query(By::ClassName("CodeMirror-line")).first()?;
-        codemirror_elem.click()?;
-        let code_elem = driver.query(By::Css(".CodeMirror div textarea")).first()?;
-        code_elem.send_keys(source)?;
+        // `send_keys` is incorrect, as bracket/quote matching will be triggered as the source code is typed,
+        // resulting in CE (https://www.acmicpc.net/source/78678130)
+        // Clipboard API seems to require user permission, so inject the string to CodeMirror instance
+        let mut args = ScriptArgs::new();
+        args.push(source)?;
+        driver.execute_script_with_args("document.querySelector('.CodeMirror').CodeMirror.setValue(arguments[0])", &args)?;
 
         // Submit and wait until refresh starts
         let submit_elem = driver.query(By::Id("submit_button")).first()?;

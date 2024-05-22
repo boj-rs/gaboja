@@ -172,7 +172,7 @@ impl GlobalState {
         self.problem = Some(self.browser.get_problem(&problem_id)?);
         let problem = self.problem.as_ref().unwrap();
         println!("Problem {} {}", problem.id, problem.title);
-        println!("Time limit: {:.3}s{} / Memory limit: {}s{}", problem.time, if !problem.time_bonus { " (No bonus)" } else { "" }, problem.memory, if !problem.memory_bonus { " (No bonus)" } else { "" });
+        println!("Time limit: {:.3}s{} / Memory limit: {}MB{}", problem.time, if !problem.time_bonus { " (No bonus)" } else { "" }, problem.memory, if !problem.memory_bonus { " (No bonus)" } else { "" });
         // TODO: store the fetched problem to the local datastore
         Ok(())
     }
@@ -207,6 +207,7 @@ impl GlobalState {
         for (io_no, ExampleIO { input, output }) in io.iter().enumerate() {
             println!("Running Test {}/{}...", io_no + 1, io_count);
             let Some(Output { stdout, stderr, success, duration }) = run_with_input_timed(cmd, input, time)? else {
+                println!("Test {}/{} Time Limit Exceeded", io_no + 1, io_count);
                 error!("Run did not finish in {:.3}s", time.as_secs_f64())?
             };
             let output = trim_lines(output);
@@ -224,9 +225,10 @@ impl GlobalState {
             }
             if diff {
                 if output == stdout {
-                    println!("Test {}/{} Success: ", io_no + 1, io_count);
+                    println!("Test {}/{} Success", io_no + 1, io_count);
+                    println!("Time: {:.3}s", duration.as_secs_f64());
                 } else {
-                    println!("Test {}/{} Wrong Answer:", io_no + 1, io_count);
+                    println!("Test {}/{} Wrong Answer", io_no + 1, io_count);
                     println!("{}", similar::TextDiff::from_lines(&output, &stdout).unified_diff().header("Expected", "Output"));
                     if !stderr.is_empty() {
                         println!("STDERR:");
