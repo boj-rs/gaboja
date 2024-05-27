@@ -1,5 +1,22 @@
 # Gaboja: CLI helper for solving BOJ problems
 
+## TODO
+
+* 커맨드의 나열인 `.bojrc` 대신 `boj.toml`을 쓸 수 있도록 할 예정입니다.
+    * `boj.toml`에서는 시작할 때 실행할 커맨드 목록(`.bojrc`에서 이미 지원)과 preset을 설정할 수 있습니다.
+* `init` 기능을 추가할 예정입니다.
+    * `init`이 설정되어 있는 상태에서 `prob`을 사용하여 문제를 로드하면 `init` 커맨드가 실행됩니다.
+    * 어떤 문제가 로드되어 있는 상태에서 `init`을 변경하면 새로운 `init` 커맨드가 실행됩니다.
+    * `init`을 설정 해제하려면 `set init ''`를 사용하여 `init`을 빈 문자열로 대체하면 됩니다.
+    * 문제마다 새 폴더나 파일을 만들어 문제를 푸는 경우에 유용합니다. (boj-cli 방식의 워크플로 등)
+* Preset 기능을 추가할 예정입니다.
+    * Preset은 `boj.toml`에서만 설정할 수 있습니다.
+    * `preset <NAME>`을 실행하면 `credentials`, `init`, `build`, `cmd`, `input`, `lang`, `file`을 해당 프리셋의 내용으로 덮어씁니다.
+    * 설정되지 않은 변수는 덮어쓰지 않습니다.
+    * `credentials`를 변경하면 변경된 쿠키로 로그인이 진행됩니다.
+    * `init`을 변경하면 변경된 `init`이 즉시 실행됩니다.
+    * 문제에 따라 사용할 언어를 바꿔가면서 문제를 풀고자 할 때 유용합니다.
+
 ## Gaboja를 사용하기 전에
 
 다음의 프로그램들이 설치되어 있어야 합니다.
@@ -13,7 +30,7 @@
 
 ## 설치 방법
 
-* 러스트 툴체인이 설치되어 있다면 이 github repo를 clone한 후 `cargo install --path=gaboja`를 실행하여 설치할 수 있습니다.
+* 러스트 툴체인이 설치되어 있다면 `cargo install --git=https://github.com/Bubbler-4/gaboja.git`를 실행하여 설치할 수 있습니다.
 * 아닌 경우, 이 repo의 releases 페이지에서 가장 나중에 올라온 바이너리를 받아 geckodriver와 같은 방법으로 설치하시면 됩니다.
     * 윈도우 빌드의 경우 바이러스로 인식이 된다거나 잘 동작하지 않거나 할 수 있습니다. 그런 경우에는 issue를 열어 주세요.
 
@@ -55,6 +72,8 @@ prob <PROB>
 build [BUILD]
 
 # 주어진 커맨드를 사용하여 소스를 실행하고, 주어진 입력 파일을 넣어 결과를 확인합니다.
+# 문제 유형에 따라 동작이 달라지거나 동작하지 않을 수 있습니다.
+# 예를 들어, 인터랙티브 문제는 유저가 입력을 키보드로 넣는 방식으로 실행되고, 함수 구현 문제는 동작하지 않습니다.
 # 예시: run i='input.txt' c='./target/release/main'
 run [i=INPUT] [c=CMD]
 
