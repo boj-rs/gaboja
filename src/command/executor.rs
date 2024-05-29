@@ -1,6 +1,6 @@
-use super::{Command, Setting, CommandExecuteError};
+use super::{Command, Setting, CommandExecuteError, Credentials};
 use crate::global_state::GlobalState;
-use crate::data::{ProblemId, ExampleIO};
+use crate::data::{ProblemId, ExampleIO, Preset};
 use crate::infra::subprocess::{run_silent, run_with_input_timed, run_interactive, Output};
 use regex::{Regex, Captures, Replacer};
 use once_cell::sync::Lazy;
@@ -43,6 +43,13 @@ impl GlobalState {
     pub(crate) fn execute(&mut self, command: &Command) -> anyhow::Result<()> {
         match command {
             Command::Set(setting) => self.set(setting)?,
+            Command::Preset { name } => {
+                let Some(preset) = self.presets.get(name) else {
+                    error!("preset: Unknown preset name")?
+                };
+                let preset = preset.clone();
+                self.preset(preset)?;
+            }
             Command::Prob { prob } => self.prob(prob)?,
             Command::Build { build } => {
                 let Some(prob) = self.problem.as_ref().map(|p| &p.id) else {
@@ -130,7 +137,7 @@ impl GlobalState {
 
     fn set(&mut self, setting: &Setting) -> anyhow::Result<()> {
         match setting {
-            Setting::Credentials { bojautologin, onlinejudge } => {
+            Setting::Credentials(Credentials { bojautologin, onlinejudge }) => {
                 self.credentials.bojautologin.clear();
                 self.credentials.bojautologin += bojautologin;
                 self.credentials.onlinejudge.clear();
@@ -150,6 +157,11 @@ impl GlobalState {
                 self.file.clear();
                 self.file += file;
             }
+            Setting::Init(init) => {
+                self.init.clear();
+                self.init += init;
+                self.init()?;
+            }
             Setting::Build(build) => {
                 self.build.clear();
                 self.build += build;
@@ -166,14 +178,63 @@ impl GlobalState {
         Ok(())
     }
 
+    fn preset(&mut self, preset: Preset) -> anyhow::Result<()> {
+        let Preset { credentials, lang, file, init, build, cmd, input, .. } = preset;
+        if let Some(credentials) = credentials {
+            self.set(&Setting::Credentials(credentials))?;
+        }
+        if let Some(lang) = lang {
+            self.set(&Setting::Lang(lang))?;
+        }
+        if let Some(file) = file {
+            self.set(&Setting::File(file))?;
+        }
+        if let Some(init) = init {
+            self.set(&Setting::Init(init))?;
+        }
+        if let Some(build) = build {
+            self.set(&Setting::Build(build))?;
+        }
+        if let Some(cmd) = cmd {
+            self.set(&Setting::Cmd(cmd))?;
+        }
+        if let Some(input) = input {
+            self.set(&Setting::Input(input))?;
+        }
+        Ok(())
+    }
+
     fn prob(&mut self, prob: &str) -> anyhow::Result<()> {
-        // TODO: try fetching from local datastore first
         let problem_id = prob.parse::<ProblemId>()?;
-        self.problem = Some(self.browser.get_problem(&problem_id)?);
+        if let Some(problem) = self.problem_cache.get(&problem_id) {
+            // try copying from the cache first
+            self.problem = Some(problem.clone());
+        } else {
+            // store the fetched problem to the cache
+            self.problem = Some(self.browser.get_problem(&problem_id)?);
+            self.problem_cache.insert(problem_id, self.problem.clone().unwrap());
+        }
         let problem = self.problem.as_ref().unwrap();
         println!("Problem {} {}", problem.id, problem.title);
         println!("Time limit: {:.3}s{} / Memory limit: {}MB{}", problem.time, if !problem.time_bonus { " (No bonus)" } else { "" }, problem.memory, if !problem.memory_bonus { " (No bonus)" } else { "" });
-        // TODO: store the fetched problem to the local datastore
+        self.init()?;
+        Ok(())
+    }
+
+    fn init(&self) -> anyhow::Result<()> {
+        // if init is empty, do nothing
+        if self.init.is_empty() {
+            return Ok(());
+        }
+        // if prob is not set, do not try to run init
+        let Some(prob) = self.problem.as_ref() else {
+            return Ok(());
+        };
+        let init_cmd = substitute_problem(&self.init, &prob.id);
+        let res = run_silent(&init_cmd)?;
+        if let Some(err) = res {
+            error!("Init returned nonzero exit code. STDERR:\n{}", err)?
+        }
         Ok(())
     }
 
@@ -289,12 +350,14 @@ set credentials <bojautologin> <onlinejudge>
     Set BOJ login cookies and log in with them.
 set lang <lang>
 set file <file>
+set init <init>
 set build <build>
 set cmd <cmd>
 set input <input>
     Set default value for the given variable.
 prob <prob>
     Load the problem <prob> and set it as the current problem.
+    If <init> is set, run it.
 build [build]
     Build your solution.
 run [i=input] [c=cmd]
@@ -303,6 +366,8 @@ test [c=cmd]
     Test your solution against sample test cases.
 submit [l=lang] [f=file]
     Submit your solution to BOJ.
+preset <name>
+    Apply one of the presets defined in boj.toml.
 help
     Display this help.
 exit

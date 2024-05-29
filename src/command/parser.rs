@@ -1,4 +1,4 @@
-use super::{Command, Setting, CommandParseError};
+use super::{Command, Setting, CommandParseError, Credentials};
 use std::collections::HashMap;
 
 macro_rules! error {
@@ -175,12 +175,12 @@ impl std::str::FromStr for Command {
                         } else if args.len() > 3 {
                             return error!("set credentials: Too many arguments");
                         }
-                        Setting::Credentials {
+                        Setting::Credentials(Credentials {
                             bojautologin: args[1].clone(),
                             onlinejudge: args[2].clone(),
-                        }
+                        })
                     }
-                    "lang" | "file" | "build" | "cmd" | "input" => {
+                    "lang" | "file" | "build" | "cmd" | "input" | "init" => {
                         if args.len() == 1 {
                             return error!("set {}: Missing argument <{}>", variable, variable);
                         } else if args.len() > 2 {
@@ -190,6 +190,7 @@ impl std::str::FromStr for Command {
                         match variable {
                             "lang" => Setting::Lang(arg),
                             "file" => Setting::File(arg),
+                            "init" => Setting::Init(arg),
                             "build" => Setting::Build(arg),
                             "cmd" => Setting::Cmd(arg),
                             "input" => Setting::Input(arg),
@@ -204,6 +205,19 @@ impl std::str::FromStr for Command {
                     return error!("set: Unexpected keyword argument(s)");
                 }
                 Ok(Command::Set(setting))
+            }
+            "preset" => {
+                if args.len() == 0 {
+                    error!("preset: Missing argument <name>")
+                } else if args.len() > 1 {
+                    error!("preset: Too many positional arguments")
+                } else if kwargs.len() > 0 {
+                    error!("preset: Unexpected keyword argument(s)")
+                } else {
+                    Ok(Self::Preset {
+                        name: args[0].clone()
+                    })
+                }
             }
             "prob" => {
                 if args.len() == 0 {

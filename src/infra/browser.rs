@@ -22,10 +22,13 @@ impl Browser {
     pub(crate) fn new() -> anyhow::Result<Self> {
         with_async_runtime(async {
             let geckodriver = Command::new("geckodriver").stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
             // Use headless firefox to allow running without a graphic device
             let mut caps = DesiredCapabilities::firefox();
             caps.set_headless()?;
+            // println!("webdriver initializing");
             let webdriver = WebDriver::new("http://localhost:4444", caps).await?;
+            // println!("webdriver initialized");
     
             // Handle AWS WAF challenge
             webdriver.get("https://www.acmicpc.net").await?;

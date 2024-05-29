@@ -1,4 +1,4 @@
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum ProblemId {
     Problem(String),
     ContestProblem(String)
@@ -58,7 +58,7 @@ impl ProblemId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ExampleIO {
     pub(crate) input: String,
     pub(crate) output: String,
@@ -146,7 +146,7 @@ impl ProblemKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Problem {
     pub(crate) id: ProblemId,
     pub(crate) title: String,
@@ -158,7 +158,26 @@ pub(crate) struct Problem {
     pub(crate) io: Vec<ExampleIO>,
 }
 
+#[derive(Debug, Clone, serde::Deserialize)]
 pub(crate) struct Credentials {
     pub(crate) bojautologin: String,
     pub(crate) onlinejudge: String,
+}
+
+#[derive(Clone, serde::Deserialize)]
+pub(crate) struct Preset {
+    pub(crate) name: String,
+    pub(crate) credentials: Option<Credentials>,
+    pub(crate) lang: Option<String>,
+    pub(crate) file: Option<String>,
+    pub(crate) init: Option<String>,
+    pub(crate) build: Option<String>,
+    pub(crate) cmd: Option<String>,
+    pub(crate) input: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+pub(crate) struct BojConfig {
+    pub(crate) start: Option<String>,
+    pub(crate) preset: Vec<Preset>,
 }

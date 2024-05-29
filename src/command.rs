@@ -1,6 +1,8 @@
 mod parser;
 mod executor;
 
+use crate::data::Credentials;
+
 #[derive(Debug, Clone)]
 pub(crate) struct InputCommand {
     raw_command: String,
@@ -35,6 +37,7 @@ impl std::str::FromStr for InputCommand {
 #[derive(Debug, Clone)]
 pub(crate) enum Command {
     Set(Setting),
+    Preset { name: String },
     Prob { prob: String },
     Build { build: Option<String> },
     Run {
@@ -55,12 +58,10 @@ pub(crate) enum Command {
 
 #[derive(Debug, Clone)]
 pub(crate) enum Setting {
-    Credentials {
-        bojautologin: String,
-        onlinejudge: String,
-    },
+    Credentials(Credentials),
     Lang(String),
     File(String),
+    Init(String),
     Build(String),
     Cmd(String),
     Input(String),
