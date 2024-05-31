@@ -1,4 +1,5 @@
 use crate::data::{ProblemId, ExampleIO, ProblemKind, Problem};
+use crate::infra::console::Spinner;
 use std::future::Future;
 use std::process::{Command, Stdio, Child};
 use thirtyfour::prelude::*;
@@ -21,8 +22,11 @@ impl Browser {
     /// Creates a new browser context. This method handles AWS WAF challenge.
     pub(crate) fn new() -> anyhow::Result<Self> {
         with_async_runtime(async {
+            let spinner = Spinner::new("Starting geckodriver...");
             let geckodriver = Command::new("geckodriver").stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
-            tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+
+            spinner.set_message("Starting Firefox...");
             // Use headless firefox to allow running without a graphic device
             let mut caps = DesiredCapabilities::firefox();
             caps.set_headless()?;
@@ -30,6 +34,7 @@ impl Browser {
             let webdriver = WebDriver::new("http://localhost:4444", caps).await?;
             // println!("webdriver initialized");
     
+            spinner.set_message("Waiting for redirect to acmicpc.net...");
             // Handle AWS WAF challenge
             webdriver.get("https://www.acmicpc.net").await?;
     
@@ -38,6 +43,8 @@ impl Browser {
             if let Some(elem) = challenge_elem {
                 elem.wait_until().stale().await?;
             }
+
+            spinner.finish("Browser initialization complete");
             Ok(Self {
                 geckodriver,
                 webdriver
@@ -69,7 +76,7 @@ impl Browser {
     pub(crate) fn get_username(&self) -> anyhow::Result<Option<String>> {
         with_async_runtime(async {
             let driver = &self.webdriver;
-            driver.get("https://www.acmicpc.net").await?;
+            // Browser is already on acmicpc.net
             let username_elem = driver.query(By::ClassName("username")).first_opt().await?;
             let username = if let Some(elem) = username_elem {
                 Some(elem.text().await?)

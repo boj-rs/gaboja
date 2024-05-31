@@ -245,6 +245,7 @@ name = "gaboja"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "console",
  "dialoguer",
  "indicatif",
  "once_cell",

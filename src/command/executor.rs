@@ -2,6 +2,7 @@ use super::{Command, Setting, CommandExecuteError, Credentials};
 use crate::global_state::GlobalState;
 use crate::data::{ProblemId, ExampleIO, Preset};
 use crate::infra::subprocess::{run_silent, run_with_input_timed, run_interactive, Output};
+use crate::infra::console::{Spinner, report_stdout, report_stderr, TestProgress, SubmitProgress};
 use regex::{Regex, Captures, Replacer};
 use once_cell::sync::Lazy;
 use std::time::Duration;
@@ -142,11 +143,13 @@ impl GlobalState {
                 self.credentials.bojautologin += bojautologin;
                 self.credentials.onlinejudge.clear();
                 self.credentials.onlinejudge += onlinejudge;
+
+                let spinner = Spinner::new("Logging in...");
                 self.browser.login(bojautologin, onlinejudge)?;
                 if let Some(username) = self.browser.get_username()? {
-                    println!("Logged in as {}", username);
+                    spinner.finish(&format!("Logged in as {}", username));
                 } else {
-                    error!("Login failed with the credentials provided")?
+                    spinner.abandon("Login failed with the credentials provided");
                 }
             }
             Setting::Lang(lang) => {
@@ -211,7 +214,9 @@ impl GlobalState {
             self.problem = Some(problem.clone());
         } else {
             // store the fetched problem to the cache
+            let spinner = Spinner::new("Fetching problem...");
             self.problem = Some(self.browser.get_problem(&problem_id)?);
+            spinner.finish("Fetching done");
             self.problem_cache.insert(problem_id, self.problem.clone().unwrap());
         }
         let problem = self.problem.as_ref().unwrap();
@@ -231,84 +236,53 @@ impl GlobalState {
             return Ok(());
         };
         let init_cmd = substitute_problem(&self.init, &prob.id);
+        let spinner = Spinner::new("Running init...");
         let res = run_silent(&init_cmd)?;
         if let Some(err) = res {
-            error!("Init returned nonzero exit code. STDERR:\n{}", err)?
+            spinner.abandon("Init returned nonzero exit code.");
+            report_stderr(&err);
+        } else {
+            spinner.finish("Init finished");
         }
         Ok(())
     }
 
     fn build(&self, build: &str) -> anyhow::Result<()> {
+        let spinner = Spinner::new("Running build...");
         let res = run_silent(build)?;
         if let Some(err) = res {
-            error!("Build returned nonzero exit code. STDERR:\n{}", err)?
+            spinner.abandon("Build returned nonzero exit code");
+            report_stderr(&err);
+        } else {
+            spinner.finish("Build finished");
         }
         Ok(())
     }
 
     fn run(&self, cmd: &str, input: &str, time: Duration) -> anyhow::Result<()> {
-        // TODO: Add color to STDOUT, STDERR, etc.
+        let spinner = Spinner::new("Running code...");
         let Some(Output { stdout, stderr, success, duration }) = run_with_input_timed(cmd, input, time)? else {
-            error!("Run did not finish in {:.3}s", time.as_secs_f64())?
+            spinner.abandon(&format!("Run did not finish in {:.3}s", time.as_secs_f64()));
+            return Ok(());
         };
-        println!("STDOUT:");
-        println!("{}", stdout);
-        println!("STDERR:");
-        println!("{}", stderr);
-        println!("Time: {:.3}s", duration.as_secs_f64());
+        let duration = duration.as_secs_f64();
         if !success {
-            error!("Run returned nonzero exit code")?
+            spinner.abandon(&format!("Run returned nonzero exit code (Elapsed: {:.3}s)", duration));
+        } else {
+            spinner.finish(&format!("Run finished (Elapsed: {:.3}s)", duration));
         }
+        report_stdout(&stdout);
+        report_stderr(&stderr);
         Ok(())
     }
 
     fn test(&self, cmd: &str, io: &[ExampleIO], time: Duration, diff: bool) -> anyhow::Result<()> {
-        // TODO: Add color to STDOUT, STDERR, etc.
         let io_count = io.len();
-        for (io_no, ExampleIO { input, output }) in io.iter().enumerate() {
-            println!("Running Test {}/{}...", io_no + 1, io_count);
-            let Some(Output { stdout, stderr, success, duration }) = run_with_input_timed(cmd, input, time)? else {
-                println!("Test {}/{} Time Limit Exceeded", io_no + 1, io_count);
-                error!("Run did not finish in {:.3}s", time.as_secs_f64())?
-            };
-            let output = trim_lines(output);
-            let stdout = trim_lines(&stdout);
-            let stderr = trim_lines(&stderr);
-            if !success {
-                println!("STDOUT:");
-                println!("{}", stdout);
-                if !stderr.is_empty() {
-                    println!("STDERR:");
-                    println!("{}", stderr);
-                }
-                println!("Time: {:.3}s", duration.as_secs_f64());
-                error!("Run returned nonzero exit code")?
-            }
-            if diff {
-                if output == stdout {
-                    println!("Test {}/{} Success", io_no + 1, io_count);
-                    println!("Time: {:.3}s", duration.as_secs_f64());
-                } else {
-                    println!("Test {}/{} Wrong Answer", io_no + 1, io_count);
-                    println!("{}", similar::TextDiff::from_lines(&output, &stdout).unified_diff().header("Expected", "Output"));
-                    if !stderr.is_empty() {
-                        println!("STDERR:");
-                        println!("{}", stderr);
-                    }
-                    println!("Time: {:.3}s", duration.as_secs_f64());
-                    error!("Test failed")?
-                }
-            } else {
-                println!("STDIN:");
-                println!("{}", trim_lines(input));
-                println!("STDOUT:");
-                println!("{}", stdout);
-                if !stderr.is_empty() {
-                    println!("STDERR:");
-                    println!("{}", stderr);
-                }
-                println!("Time: {:.3}s", duration.as_secs_f64());
-            }
+        let test_progress = TestProgress::new(io_count as u64);
+        for ExampleIO { input, output } in io {
+            let expected = output;
+            let output = run_with_input_timed(cmd, input, time)?;
+            if !test_progress.handle_test_result(input, expected, output, diff) { break; }
         }
         Ok(())
     }
@@ -320,18 +294,16 @@ impl GlobalState {
         let Ok(source) = std::fs::read_to_string(file) else {
             error!("submit: File `{}` does not exist", file)?
         };
+
+        let spinner = Spinner::new("Submitting code...");
         self.browser.submit_solution(prob, &source, lang)?;
-        let (mut status_text, mut status_class) = self.browser.get_submission_status()?;
-        println!("Status: {} ({})", status_text, status_class);
-        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(r"result-wait|result-rejudge-wait|result-no-judge|result-compile|result-judging").unwrap());
-        while RE.is_match(&status_class) {
-            let (next_status_text, next_status_class) = self.browser.get_submission_status()?;
-            if next_status_text != status_text {
-                (status_text, status_class) = (next_status_text, next_status_class);
-                println!("Status: {} ({})", status_text, status_class);
-            }
+        spinner.finish("Code submitted.");
+
+        let submit_progress = SubmitProgress::new();
+        loop {
+            let (status_text, status_class) = self.browser.get_submission_status()?;
+            if submit_progress.update(&status_text, &status_class) { break; }
         }
-        // TODO: replace with indicatif progress bar
         Ok(())
     }
 
@@ -339,10 +311,6 @@ impl GlobalState {
         println!("{}", HELP.trim());
         Ok(())
     }
-}
-
-fn trim_lines(s: &str) -> String {
-    s.trim_end().lines().flat_map(|l| [l.trim_end(), "\n"]).collect()
 }
 
 const HELP: &str = "
