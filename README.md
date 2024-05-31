@@ -1,22 +1,5 @@
 # Gaboja: CLI helper for solving BOJ problems
 
-## TODO
-
-* 커맨드의 나열인 `.bojrc` 대신 `boj.toml`을 쓸 수 있도록 할 예정입니다.
-    * `boj.toml`에서는 시작할 때 실행할 커맨드 목록(`.bojrc`에서 이미 지원)과 preset을 설정할 수 있습니다.
-* `init` 기능을 추가할 예정입니다.
-    * `init`이 설정되어 있는 상태에서 `prob`을 사용하여 문제를 로드하면 `init` 커맨드가 실행됩니다.
-    * 어떤 문제가 로드되어 있는 상태에서 `init`을 변경하면 새로운 `init` 커맨드가 실행됩니다.
-    * `init`을 설정 해제하려면 `set init ''`를 사용하여 `init`을 빈 문자열로 대체하면 됩니다.
-    * 문제마다 새 폴더나 파일을 만들어 문제를 푸는 경우에 유용합니다. (boj-cli 방식의 워크플로 등)
-* Preset 기능을 추가할 예정입니다.
-    * Preset은 `boj.toml`에서만 설정할 수 있습니다.
-    * `preset <NAME>`을 실행하면 `credentials`, `init`, `build`, `cmd`, `input`, `lang`, `file`을 해당 프리셋의 내용으로 덮어씁니다.
-    * 설정되지 않은 변수는 덮어쓰지 않습니다.
-    * `credentials`를 변경하면 변경된 쿠키로 로그인이 진행됩니다.
-    * `init`을 변경하면 변경된 `init`이 즉시 실행됩니다.
-    * 문제에 따라 사용할 언어를 바꿔가면서 문제를 풀고자 할 때 유용합니다.
-
 ## Gaboja를 사용하기 전에
 
 다음의 프로그램들이 설치되어 있어야 합니다.
@@ -30,9 +13,10 @@
 
 ## 설치 방법
 
-* 러스트 툴체인이 설치되어 있다면 `cargo install --git=https://github.com/Bubbler-4/gaboja.git`를 실행하여 설치할 수 있습니다.
+* 러스트 툴체인이 설치되어 있다면 `cargo install gaboja`를 실행하여 설치할 수 있습니다.
 * 아닌 경우, 이 repo의 releases 페이지에서 가장 나중에 올라온 바이너리를 받아 geckodriver와 같은 방법으로 설치하시면 됩니다.
     * 윈도우 빌드의 경우 바이러스로 인식이 된다거나 잘 동작하지 않거나 할 수 있습니다. 그런 경우에는 issue를 열어 주세요.
+* 설치하고 실행하기 전에 터미널을 재시작해야 할 수 있습니다.
 
 ## 사용 방법
 
@@ -57,12 +41,19 @@ set credentials <BOJAUTOLOGIN> <ONLINEJUDGE>
 # 대회 문제의 경우 `{}`는 `(대회 번호)_(문제 번호)`, `{c}`는 `(대회 번호)c(문제 번호)`로 치환됩니다.
 set lang <LANG>
 set file <FILE>
+set init <INITCMD>
 set build <BUILD>
 set cmd <CMD>
 set input <INPUT>
 
 # 문제를 로드하고 기본 정보를 출력합니다. 대회 문제는 (대회 번호)/(문제 번호)로 입력합니다.
+# init 커맨드가 설정되어 있으면 init을 실행합니다. 문제 번호별 폴더나 소스 파일을 생성하는 데 사용할 수 있습니다.
 prob <PROB>
+
+# 여러 개의 변수를 boj.toml에 정의된 preset으로 교체합니다.
+# credential이 변경되면 새로 로그인을 진행하고, 문제가 로드된 상태에서 init이 변경되면 새로운 init을 즉시 실행합니다.
+# 문제에 따라 언어를 바꿔가면서 풀 때 유용합니다.
+preset <NAME>
 
 # 아래의 커맨드에서 매개변수를 생략하면 위의 set 커맨드로 설정된 값을 사용합니다.
 # 자주 쓰는 값들을 모두 set 해놓고 build, run, test, submit 등으로 간단하게 사용할 수 있습니다.
@@ -89,9 +80,35 @@ submit [l=LANG] [f=FILE]
 exit
 ```
 
-## `.bojrc`
+## `boj.toml`
 
-gaboja를 실행하는 폴더에 `.bojrc`라는 파일이 있으면 초기화 과정에서 그 파일을 읽어 줄 단위로 실행합니다. 이를 이용하면 각종 set 커맨드들을 매번 입력하지 않고 편리하게 이용할 수 있습니다.
+gaboja를 실행하는 폴더에 `boj.toml`이라는 파일을 두어 시작 시 자동 실행할 커맨드와 preset을 설정할 수 있습니다.
 
-예시는 [여기](https://github.com/Bubbler-4/rust-problem-solving/blob/main/ps/.bojrc)에서 확인할 수 있습니다.
+```toml
+# start: multiline string
+# 시작 시에 줄 단위로 자동으로 실행됩니다.
+start = '''
+set credentials $BUB_BOJAUTOLOGIN $BUB_ONLINEJUDGE
+preset rust
+'''
 
+# preset: array of objects
+# name은 필수 항목이며, 나머지는 모두 생략할 수 있습니다.
+[[preset]]
+name = 'rust'
+init = ''
+build = 'cargo oj && cargo build --release --bin main'
+cmd = './target/release/main'
+input = 'input.txt'
+lang = 'Rust 2021'
+file = 'src/bin/main.rs'
+
+[[preset]]
+name = 'py'
+init = ''
+build = ''
+cmd = 'python src.py'
+input = 'input.txt'
+lang = 'Python 3'
+file = 'src.py'
+```

@@ -2,6 +2,13 @@
 name = "gaboja"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Gaboja: CLI helper for solving BOJ problems"
+homepage = "https://github.com/Bubbler-4/gaboja"
+repository = "https://github.com/Bubbler-4/gaboja"
+readme = "README.md"
+keywords = ["cli", "web"]
+categories = ["command-line-utilities"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
