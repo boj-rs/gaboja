@@ -1,10 +1,10 @@
-use super::{Command, Setting, CommandExecuteError, Credentials};
+use super::{Command, CommandExecuteError, Credentials, Setting};
+use crate::data::{ExampleIO, Preset, ProblemId};
 use crate::global_state::GlobalState;
-use crate::data::{ProblemId, ExampleIO, Preset};
-use crate::infra::subprocess::{run_silent, run_with_input_timed, run_interactive, Output};
-use crate::infra::console::{Spinner, report_stdout, report_stderr, TestProgress, SubmitProgress};
-use regex::{Regex, Captures, Replacer};
+use crate::infra::console::{report_stderr, report_stdout, Spinner, SubmitProgress, TestProgress};
+use crate::infra::subprocess::{run_interactive, run_silent, run_with_input_timed, Output};
 use once_cell::sync::Lazy;
+use regex::{Captures, Regex, Replacer};
 use std::time::Duration;
 
 macro_rules! error {
@@ -23,10 +23,12 @@ fn substitute_problem(path: &str, problem_id: &ProblemId) -> String {
     impl<'a> Replacer for ProblemReplacer<'a> {
         fn replace_append(&mut self, caps: &Captures<'_>, dst: &mut String) {
             let mut sep = &caps[1];
-            if sep.is_empty() { sep = "_"; }
+            if sep.is_empty() {
+                sep = "_";
+            }
             match &self.0 {
                 ProblemId::Problem(prob) => {
-                    dst.push_str(&prob);
+                    dst.push_str(prob);
                 }
                 ProblemId::ContestProblem(prob) => {
                     let mut fragments = prob.split('/');
@@ -37,7 +39,8 @@ fn substitute_problem(path: &str, problem_id: &ProblemId) -> String {
             }
         }
     }
-    RE.replace_all(path, ProblemReplacer(problem_id)).to_string()
+    RE.replace_all(path, ProblemReplacer(problem_id))
+        .to_string()
 }
 
 impl GlobalState {
@@ -61,12 +64,17 @@ impl GlobalState {
                 self.build(&build)?;
             }
             Command::Run { cmd, input } => {
-                let Some((prob, time, kind)) = self.problem.as_ref().map(|p| (&p.id, p.time, &p.kind)) else {
+                let Some((prob, time, kind)) =
+                    self.problem.as_ref().map(|p| (&p.id, p.time, &p.kind))
+                else {
                     error!("run: Problem not specified")?
                 };
                 let mut no_run_reasons = kind.iter().flat_map(|kind| kind.no_run());
                 if let Some(first_reason) = no_run_reasons.next() {
-                    let mut reason = format!("run: Current problem does not support run. Reason: {}", first_reason);
+                    let mut reason = format!(
+                        "run: Current problem does not support run. Reason: {}",
+                        first_reason
+                    );
                     for rest_reason in no_run_reasons {
                         reason += ", ";
                         reason += &rest_reason;
@@ -82,15 +90,26 @@ impl GlobalState {
                 let stored_input = self.input.clone();
                 let input = input.as_ref().unwrap_or(&stored_input);
                 let input_data = std::fs::read_to_string(input)?;
-                self.run(&cmd, &input_data, Duration::from_secs_f64((time * 3.0 + 2.0).min(10.0)))?;
+                self.run(
+                    &cmd,
+                    &input_data,
+                    Duration::from_secs_f64((time * 3.0 + 2.0).min(10.0)),
+                )?;
             }
             Command::Test { cmd } => {
-                let Some((prob, time, kind, io)) = self.problem.as_ref().map(|p| (&p.id, p.time, &p.kind, &p.io)) else {
+                let Some((prob, time, kind, io)) = self
+                    .problem
+                    .as_ref()
+                    .map(|p| (&p.id, p.time, &p.kind, &p.io))
+                else {
                     error!("test: Problem not specified")?
                 };
                 let mut no_test_reasons = kind.iter().flat_map(|kind| kind.no_test());
                 if let Some(first_reason) = no_test_reasons.next() {
-                    let mut reason = format!("test: Current problem does not support test. Reason: {}", first_reason);
+                    let mut reason = format!(
+                        "test: Current problem does not support test. Reason: {}",
+                        first_reason
+                    );
                     for rest_reason in no_test_reasons {
                         reason += ", ";
                         reason += &rest_reason;
@@ -100,7 +119,10 @@ impl GlobalState {
                 let mut no_diff_reasons = kind.iter().flat_map(|kind| kind.no_diff());
                 let mut diff = true;
                 if let Some(first_reason) = no_diff_reasons.next() {
-                    let mut reason = format!("test: Current problem does not support diff on test output. Reason: {}", first_reason);
+                    let mut reason = format!(
+                        "test: Current problem does not support diff on test output. Reason: {}",
+                        first_reason
+                    );
                     for rest_reason in no_diff_reasons {
                         reason += ", ";
                         reason += &rest_reason;
@@ -110,18 +132,31 @@ impl GlobalState {
                 }
                 let stored_cmd = self.cmd.clone();
                 let cmd = substitute_problem(cmd.as_ref().unwrap_or(&stored_cmd), prob);
-                self.test(&cmd, &io, Duration::from_secs_f64((time * 3.0 + 2.0).min(10.0)), diff)?;
+                self.test(
+                    &cmd,
+                    io,
+                    Duration::from_secs_f64((time * 3.0 + 2.0).min(10.0)),
+                    diff,
+                )?;
             }
             Command::Submit { lang, file } => {
                 let Some(prob) = self.problem.as_ref().map(|p| &p.id) else {
                     error!("submit: Problem not specified")?
                 };
-                let lang = if let Some(lang) = lang { lang.clone() }
-                else if !self.lang.is_empty() { self.lang.clone() }
-                else { error!("submit: Language not specified")? };
-                let file = if let Some(file) = file { file.clone() }
-                else if !self.file.is_empty() { self.file.clone() }
-                else { error!("submit: Solution file not specified")? };
+                let lang = if let Some(lang) = lang {
+                    lang.clone()
+                } else if !self.lang.is_empty() {
+                    self.lang.clone()
+                } else {
+                    error!("submit: Language not specified")?
+                };
+                let file = if let Some(file) = file {
+                    file.clone()
+                } else if !self.file.is_empty() {
+                    self.file.clone()
+                } else {
+                    error!("submit: Solution file not specified")?
+                };
                 let file = substitute_problem(&file, prob);
                 self.submit(&lang, &file)?;
             }
@@ -138,7 +173,10 @@ impl GlobalState {
 
     fn set(&mut self, setting: &Setting) -> anyhow::Result<()> {
         match setting {
-            Setting::Credentials(Credentials { bojautologin, onlinejudge }) => {
+            Setting::Credentials(Credentials {
+                bojautologin,
+                onlinejudge,
+            }) => {
                 self.credentials.bojautologin.clear();
                 self.credentials.bojautologin += bojautologin;
                 self.credentials.onlinejudge.clear();
@@ -182,7 +220,16 @@ impl GlobalState {
     }
 
     fn preset(&mut self, preset: Preset) -> anyhow::Result<()> {
-        let Preset { credentials, lang, file, init, build, cmd, input, .. } = preset;
+        let Preset {
+            credentials,
+            lang,
+            file,
+            init,
+            build,
+            cmd,
+            input,
+            ..
+        } = preset;
         if let Some(credentials) = credentials {
             self.set(&Setting::Credentials(credentials))?;
         }
@@ -217,11 +264,26 @@ impl GlobalState {
             let spinner = Spinner::new("Fetching problem...");
             self.problem = Some(self.browser.get_problem(&problem_id)?);
             spinner.finish("Fetching done");
-            self.problem_cache.insert(problem_id, self.problem.clone().unwrap());
+            self.problem_cache
+                .insert(problem_id, self.problem.clone().unwrap());
         }
         let problem = self.problem.as_ref().unwrap();
         println!("Problem {} {}", problem.id, problem.title);
-        println!("Time limit: {:.3}s{} / Memory limit: {}MB{}", problem.time, if !problem.time_bonus { " (No bonus)" } else { "" }, problem.memory, if !problem.memory_bonus { " (No bonus)" } else { "" });
+        println!(
+            "Time limit: {:.3}s{} / Memory limit: {}MB{}",
+            problem.time,
+            if !problem.time_bonus {
+                " (No bonus)"
+            } else {
+                ""
+            },
+            problem.memory,
+            if !problem.memory_bonus {
+                " (No bonus)"
+            } else {
+                ""
+            }
+        );
         self.init()?;
         Ok(())
     }
@@ -261,13 +323,22 @@ impl GlobalState {
 
     fn run(&self, cmd: &str, input: &str, time: Duration) -> anyhow::Result<()> {
         let spinner = Spinner::new("Running code...");
-        let Some(Output { stdout, stderr, success, duration }) = run_with_input_timed(cmd, input, time)? else {
+        let Some(Output {
+            stdout,
+            stderr,
+            success,
+            duration,
+        }) = run_with_input_timed(cmd, input, time)?
+        else {
             spinner.abandon(&format!("Run did not finish in {:.3}s", time.as_secs_f64()));
             return Ok(());
         };
         let duration = duration.as_secs_f64();
         if !success {
-            spinner.abandon(&format!("Run returned nonzero exit code (Elapsed: {:.3}s)", duration));
+            spinner.abandon(&format!(
+                "Run returned nonzero exit code (Elapsed: {:.3}s)",
+                duration
+            ));
         } else {
             spinner.finish(&format!("Run finished (Elapsed: {:.3}s)", duration));
         }
@@ -282,7 +353,9 @@ impl GlobalState {
         for ExampleIO { input, output } in io {
             let expected = output;
             let output = run_with_input_timed(cmd, input, time)?;
-            if !test_progress.handle_test_result(input, expected, output, diff) { break; }
+            if !test_progress.handle_test_result(input, expected, output, diff) {
+                break;
+            }
         }
         Ok(())
     }
@@ -302,7 +375,9 @@ impl GlobalState {
         let submit_progress = SubmitProgress::new();
         loop {
             let (status_text, status_class) = self.browser.get_submission_status()?;
-            if submit_progress.update(&status_text, &status_class) { break; }
+            if submit_progress.update(&status_text, &status_class) {
+                break;
+            }
         }
         Ok(())
     }

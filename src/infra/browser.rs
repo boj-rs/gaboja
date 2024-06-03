@@ -1,9 +1,9 @@
-use crate::data::{ProblemId, ExampleIO, ProblemKind, Problem};
+use crate::data::{ExampleIO, Problem, ProblemId, ProblemKind};
 use crate::infra::console::Spinner;
 use std::future::Future;
-use std::process::{Command, Stdio, Child};
-use thirtyfour::prelude::*;
+use std::process::{Child, Command, Stdio};
 use thirtyfour::common::cookie::SameSite;
+use thirtyfour::prelude::*;
 use tokio::runtime;
 
 /// Takes care of interaction with BOJ pages. Internally uses headless Firefox and geckodriver.
@@ -13,9 +13,14 @@ pub(crate) struct Browser {
 }
 
 fn with_async_runtime<F, R>(future: F) -> anyhow::Result<R>
-where F: Future<Output=anyhow::Result<R>> {
-    let rt = runtime::Builder::new_current_thread().enable_time().enable_io().build()?;
-    Ok(rt.block_on(future)?)
+where
+    F: Future<Output = anyhow::Result<R>>,
+{
+    let rt = runtime::Builder::new_current_thread()
+        .enable_time()
+        .enable_io()
+        .build()?;
+    rt.block_on(future)
 }
 
 impl Browser {
@@ -23,7 +28,10 @@ impl Browser {
     pub(crate) fn new() -> anyhow::Result<Self> {
         with_async_runtime(async {
             let spinner = Spinner::new("Starting geckodriver...");
-            let geckodriver = Command::new("geckodriver").stdout(Stdio::null()).stderr(Stdio::null()).spawn()?;
+            let geckodriver = Command::new("geckodriver")
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .spawn()?;
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
 
             spinner.set_message("Starting Firefox...");
@@ -33,13 +41,16 @@ impl Browser {
             // println!("webdriver initializing");
             let webdriver = WebDriver::new("http://localhost:4444", caps).await?;
             // println!("webdriver initialized");
-    
+
             spinner.set_message("Waiting for redirect to acmicpc.net...");
             // Handle AWS WAF challenge
             webdriver.get("https://www.acmicpc.net").await?;
-    
+
             // If this container exists, AWS challenge is activated; wait until refresh starts
-            let challenge_elem = webdriver.query(By::Id("challenge-container")).first_opt().await?;
+            let challenge_elem = webdriver
+                .query(By::Id("challenge-container"))
+                .first_opt()
+                .await?;
             if let Some(elem) = challenge_elem {
                 elem.wait_until().stale().await?;
             }
@@ -47,7 +58,7 @@ impl Browser {
             spinner.finish("Browser initialization complete");
             Ok(Self {
                 geckodriver,
-                webdriver
+                webdriver,
             })
         })
     }
@@ -56,7 +67,7 @@ impl Browser {
     pub(crate) fn login(&self, bojautologin: &str, onlinejudge: &str) -> anyhow::Result<()> {
         with_async_runtime(async {
             let driver = &self.webdriver;
-    
+
             // Browser is already on acmicpc.net; safe to set cookies
             let mut cookie = Cookie::new("bojautologin", bojautologin);
             cookie.set_domain(".acmicpc.net");
@@ -103,15 +114,31 @@ impl Browser {
                     kind.push(cur_kind);
                 }
             }
-            let problem_info_elems = driver.find_all(By::Css("#problem-info tbody tr td")).await?;
-            let time_limit = if let Some(elem) = problem_info_elems.get(0) {
+            let problem_info_elems = driver
+                .find_all(By::Css("#problem-info tbody tr td"))
+                .await?;
+            let time_limit = if let Some(elem) = problem_info_elems.first() {
                 elem.text().await?
-            } else { "? seconds".to_string() };
+            } else {
+                "? seconds".to_string()
+            };
             let memory_limit = if let Some(elem) = problem_info_elems.get(1) {
                 elem.text().await?
-            } else { "? MB".to_string() };
-            let time = time_limit.split(' ').next().unwrap().parse::<f64>().unwrap();
-            let memory = memory_limit.split(' ').next().unwrap().parse::<f64>().unwrap();
+            } else {
+                "? MB".to_string()
+            };
+            let time = time_limit
+                .split(' ')
+                .next()
+                .unwrap()
+                .parse::<f64>()
+                .unwrap();
+            let memory = memory_limit
+                .split(' ')
+                .next()
+                .unwrap()
+                .parse::<f64>()
+                .unwrap();
             let time_bonus = !time_limit.contains('(');
             let memory_bonus = !memory_limit.contains('(');
             let mut io = vec![];
@@ -135,26 +162,42 @@ impl Browser {
     }
 
     /// Submits source code via submit page.
-    pub(crate) fn submit_solution(&self, problem_id: &ProblemId, source: &str, language: &str) -> anyhow::Result<()> {
+    pub(crate) fn submit_solution(
+        &self,
+        problem_id: &ProblemId,
+        source: &str,
+        language: &str,
+    ) -> anyhow::Result<()> {
         with_async_runtime(async {
             let driver = &self.webdriver;
             let submit_page = problem_id.submit_url();
             driver.get(submit_page).await?;
-    
+
             // Set language: click dropdown, search name, select first item
             let lang_elem = driver.query(By::ClassName("chosen-single")).first().await?;
             lang_elem.click().await?;
-            let lang_search_elem = driver.query(By::ClassName("chosen-search-input")).first().await?;
+            let lang_search_elem = driver
+                .query(By::ClassName("chosen-search-input"))
+                .first()
+                .await?;
             lang_search_elem.send_keys(language).await?;
-            let lang_found_elem = driver.query(By::Css(".active-result.highlighted")).first().await?;
+            let lang_found_elem = driver
+                .query(By::Css(".active-result.highlighted"))
+                .first()
+                .await?;
             lang_found_elem.click().await?;
-    
+
             // Set source: https://stackoverflow.com/a/57621139/4595904 simplified
             // `send_keys` is incorrect, as bracket/quote matching will be triggered as the source code is typed,
             // resulting in CE (https://www.acmicpc.net/source/78678130)
             // Clipboard API seems to require user permission, so inject the string to CodeMirror instance
-            driver.execute("document.querySelector('.CodeMirror').CodeMirror.setValue(arguments[0])", vec![serde_json::to_value(source)?]).await?;
-    
+            driver
+                .execute(
+                    "document.querySelector('.CodeMirror').CodeMirror.setValue(arguments[0])",
+                    vec![serde_json::to_value(source)?],
+                )
+                .await?;
+
             // Submit and wait until refresh starts
             let submit_elem = driver.query(By::Id("submit_button")).first().await?;
             submit_elem.click().await?;
@@ -177,7 +220,10 @@ impl Browser {
     /// Gracefully terminate the browser. Should be called even on error.
     pub(crate) fn quit(self) -> anyhow::Result<()> {
         with_async_runtime(async {
-            let Self { mut geckodriver, webdriver } = self;
+            let Self {
+                mut geckodriver,
+                webdriver,
+            } = self;
             webdriver.quit().await?;
             geckodriver.kill()?;
             Ok(())

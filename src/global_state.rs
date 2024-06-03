@@ -1,4 +1,4 @@
-use crate::data::{Credentials, Problem, ProblemId, BojConfig, Preset};
+use crate::data::{BojConfig, Credentials, Preset, Problem, ProblemId};
 use crate::infra::browser::Browser;
 use std::collections::HashMap;
 
@@ -42,16 +42,26 @@ impl GlobalState {
                 }
                 if let Some(start) = config.start.as_ref() {
                     for (lineno, line) in start.lines().enumerate() {
-                        if line.is_empty() { continue; }
+                        if line.is_empty() {
+                            continue;
+                        }
                         match line.parse::<crate::InputCommand>() {
                             Ok(cmd) => {
                                 if let Err(err) = state.execute(&cmd) {
-                                    println!("boj.toml start script execution error at line {}: {}", lineno + 1, err);
+                                    println!(
+                                        "boj.toml start script execution error at line {}: {}",
+                                        lineno + 1,
+                                        err
+                                    );
                                     break;
                                 }
                             }
                             Err(err) => {
-                                println!("boj.toml start script parse error at line {}: {}", lineno + 1, err);
+                                println!(
+                                    "boj.toml start script parse error at line {}: {}",
+                                    lineno + 1,
+                                    err
+                                );
                                 break;
                             }
                         }

@@ -1,5 +1,5 @@
-mod parser;
 mod executor;
+mod parser;
 
 use crate::data::Credentials;
 
@@ -29,7 +29,7 @@ impl std::str::FromStr for InputCommand {
         let parsed = s.parse::<Command>()?;
         Ok(Self {
             raw_command: s.to_string(),
-            command: parsed
+            command: parsed,
         })
     }
 }
@@ -37,9 +37,15 @@ impl std::str::FromStr for InputCommand {
 #[derive(Debug, Clone)]
 pub(crate) enum Command {
     Set(Setting),
-    Preset { name: String },
-    Prob { prob: String },
-    Build { build: Option<String> },
+    Preset {
+        name: String,
+    },
+    Prob {
+        prob: String,
+    },
+    Build {
+        build: Option<String>,
+    },
     Run {
         cmd: Option<String>,
         input: Option<String>,

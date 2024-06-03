@@ -1,12 +1,12 @@
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum ProblemId {
     Problem(String),
-    ContestProblem(String)
+    ContestProblem(String),
 }
 
 #[derive(Debug)]
 pub(crate) struct ParseError {
-    input: String
+    input: String,
 }
 
 impl std::fmt::Display for ParseError {
@@ -25,10 +25,14 @@ impl std::str::FromStr for ProblemId {
             match slash_count {
                 0 => Ok(ProblemId::Problem(s.to_string())),
                 1 => Ok(ProblemId::ContestProblem(s.to_string())),
-                _ => Err(ParseError { input: s.to_string() })
+                _ => Err(ParseError {
+                    input: s.to_string(),
+                }),
             }
         } else {
-            Err(ParseError { input: s.to_string() })
+            Err(ParseError {
+                input: s.to_string(),
+            })
         }
     }
 }
@@ -46,14 +50,14 @@ impl ProblemId {
     pub(crate) fn problem_url(&self) -> String {
         match self {
             Self::Problem(id) => format!("https://www.acmicpc.net/problem/{}", id),
-            Self::ContestProblem(id) => format!("https://www.acmicpc.net/contest/problem/{}", id)
+            Self::ContestProblem(id) => format!("https://www.acmicpc.net/contest/problem/{}", id),
         }
     }
 
     pub(crate) fn submit_url(&self) -> String {
         match self {
             Self::Problem(id) => format!("https://www.acmicpc.net/submit/{}", id),
-            Self::ContestProblem(id) => format!("https://www.acmicpc.net/contest/submit/{}", id)
+            Self::ContestProblem(id) => format!("https://www.acmicpc.net/contest/submit/{}", id),
         }
     }
 }
@@ -66,20 +70,20 @@ pub(crate) struct ExampleIO {
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(crate) enum ProblemKind {
-    SpecialJudge, // spj
-    Subtask, // subtask
-    PartialScore, // partial
-    FunctionImpl, // func
-    Interactive, // interactive
-    TwoSteps, // two-steps
-    FullGrade, // full
-    Unofficial, // unofficial
-    Preparing, // preparing
-    LanguageRestrict, // language-restrict
-    ClassImpl, // class
-    Feedback, // feedback
-    TimeAccum, // time-acc
-    RandomKiller, // random-killer
+    SpecialJudge,       // spj
+    Subtask,            // subtask
+    PartialScore,       // partial
+    FunctionImpl,       // func
+    Interactive,        // interactive
+    TwoSteps,           // two-steps
+    FullGrade,          // full
+    Unofficial,         // unofficial
+    Preparing,          // preparing
+    LanguageRestrict,   // language-restrict
+    ClassImpl,          // class
+    Feedback,           // feedback
+    TimeAccum,          // time-acc
+    RandomKiller,       // random-killer
     SubmitLimit(usize), // submit-limit
 }
 
@@ -112,14 +116,16 @@ impl ProblemKind {
                 }
             }
         }
-        Err(ParseError { input: class.to_string() })
+        Err(ParseError {
+            input: class.to_string(),
+        })
     }
 
     pub(crate) fn no_run(&self) -> Option<&'static str> {
         match self {
             Self::FunctionImpl => Some("function implementation"),
             Self::ClassImpl => Some("class implementation"),
-            _ => None
+            _ => None,
         }
     }
 
@@ -129,7 +135,7 @@ impl ProblemKind {
             Self::ClassImpl => Some("class implementation"),
             Self::Interactive => Some("interactive"),
             Self::TwoSteps => Some("two steps"),
-            _ => None
+            _ => None,
         }
     }
 
@@ -137,7 +143,7 @@ impl ProblemKind {
         match self {
             Self::SpecialJudge => Some("special judge"),
             Self::PartialScore => Some("partial score"),
-            _ => None
+            _ => None,
         }
     }
 

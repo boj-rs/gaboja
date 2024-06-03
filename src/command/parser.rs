@@ -1,4 +1,4 @@
-use super::{Command, Setting, CommandParseError, Credentials};
+use super::{Command, CommandParseError, Credentials, Setting};
 use std::collections::HashMap;
 
 macro_rules! error {
@@ -23,7 +23,10 @@ impl RawCommand {
             }
             let cmd = String::from_utf8_lossy(&cmd);
             if !input.is_empty() && input[0] != b' ' {
-                return error!("Unexpected non-whitespace character `{}` after command name `{}`", input[0] as char, cmd);
+                return error!(
+                    "Unexpected non-whitespace character `{}` after command name `{}`",
+                    input[0] as char, cmd
+                );
             }
             while !input.is_empty() && input[0] == b' ' {
                 input = &input[1..];
@@ -48,7 +51,10 @@ impl RawCommand {
                             return error!("Unterminated quoted argument");
                         }
                         if input[0] != b'\\' && input[0] != quote {
-                            return error!("Unexpected escaped character `{}` after backslash", input[0] as char);
+                            return error!(
+                                "Unexpected escaped character `{}` after backslash",
+                                input[0] as char
+                            );
                         }
                         arg.push(input[0]);
                         input = &input[1..];
@@ -59,13 +65,19 @@ impl RawCommand {
                 }
                 input = &input[1..];
                 if !input.is_empty() && input[0] != b' ' {
-                    return error!("Unexpected non-whitespace character `{}` after quoted argument", input[0] as char);
+                    return error!(
+                        "Unexpected non-whitespace character `{}` after quoted argument",
+                        input[0] as char
+                    );
                 }
             } else {
                 // unquoted argument
                 while !input.is_empty() && input[0] != b' ' {
                     if input[0] == b'\'' || input[0] == b'"' {
-                        return error!("Unexpected quote `{}` in the middle of an unquoted argument", input[0] as char);
+                        return error!(
+                            "Unexpected quote `{}` in the middle of an unquoted argument",
+                            input[0] as char
+                        );
                     }
                     arg.push(input[0]);
                     input = &input[1..];
@@ -91,15 +103,15 @@ impl RawCommand {
         if input.is_empty() {
             return error!("Input is empty");
         }
-        if input.starts_with("$ ") {
+        if let Some(shellcmd) = input.strip_prefix("$ ") {
             return Ok(Self {
-                main_cmd: input[2..].to_string(),
+                main_cmd: shellcmd.to_string(),
                 shell: true,
                 args: vec![],
-                kwargs: HashMap::new()
+                kwargs: HashMap::new(),
             });
         }
-        if input.starts_with("$") {
+        if input.starts_with('$') {
             return error!("There must be a space after the shell marker $");
         }
         let shell = false;
@@ -137,7 +149,12 @@ impl RawCommand {
 impl std::str::FromStr for Command {
     type Err = CommandParseError;
     fn from_str(input: &str) -> Result<Self, CommandParseError> {
-        let RawCommand { main_cmd, shell, mut args, mut kwargs } = RawCommand::parse(input)?;
+        let RawCommand {
+            main_cmd,
+            shell,
+            mut args,
+            mut kwargs,
+        } = RawCommand::parse(input)?;
         if shell {
             return Ok(Self::Shell(main_cmd));
         }
@@ -169,7 +186,9 @@ impl std::str::FromStr for Command {
                 let setting = match variable {
                     "credentials" => {
                         if args.len() == 1 {
-                            return error!("set credentials: Missing arguments <bojautologin> <onlinejudge>");
+                            return error!(
+                                "set credentials: Missing arguments <bojautologin> <onlinejudge>"
+                            );
                         } else if args.len() == 2 {
                             return error!("set credentials: Missing argument <onlinejudge>");
                         } else if args.len() > 3 {
@@ -194,7 +213,7 @@ impl std::str::FromStr for Command {
                             "build" => Setting::Build(arg),
                             "cmd" => Setting::Cmd(arg),
                             "input" => Setting::Input(arg),
-                            _ => unreachable!()
+                            _ => unreachable!(),
                         }
                     }
                     _ => {
@@ -207,28 +226,28 @@ impl std::str::FromStr for Command {
                 Ok(Command::Set(setting))
             }
             "preset" => {
-                if args.len() == 0 {
+                if args.is_empty() {
                     error!("preset: Missing argument <name>")
                 } else if args.len() > 1 {
                     error!("preset: Too many positional arguments")
-                } else if kwargs.len() > 0 {
+                } else if !kwargs.is_empty() {
                     error!("preset: Unexpected keyword argument(s)")
                 } else {
                     Ok(Self::Preset {
-                        name: args[0].clone()
+                        name: args[0].clone(),
                     })
                 }
             }
             "prob" => {
-                if args.len() == 0 {
+                if args.is_empty() {
                     error!("prob: Missing argument <problem>")
                 } else if args.len() > 1 {
                     error!("prob: Too many positional arguments")
-                } else if kwargs.len() > 0 {
+                } else if !kwargs.is_empty() {
                     error!("prob: Unexpected keyword argument(s)")
                 } else {
                     Ok(Self::Prob {
-                        prob: args[0].clone()
+                        prob: args[0].clone(),
                     })
                 }
             }
@@ -236,7 +255,7 @@ impl std::str::FromStr for Command {
                 let mut build = None;
                 if args.len() == 1 {
                     build = Some(args[0].clone());
-                } else if args.len() > 0 {
+                } else if !args.is_empty() {
                     return error!("build: Too many positional arguments");
                 }
                 if !kwargs.is_empty() {
@@ -297,14 +316,10 @@ impl std::str::FromStr for Command {
                 }
                 Ok(Self::Exit)
             }
-            "help" => {
-                Ok(Self::Help)
-            }
-            _ => {
-                Err(CommandParseError {
-                    msg: format!("Unknown command `{}`", main_cmd)
-                })
-            }
+            "help" => Ok(Self::Help),
+            _ => Err(CommandParseError {
+                msg: format!("Unknown command `{}`", main_cmd),
+            }),
         }
     }
 }
