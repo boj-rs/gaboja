@@ -117,41 +117,39 @@ impl TestProgress {
                 }
                 return false;
             }
-            if diff {
-                if expected == stdout {
+            if !diff || expected == stdout {
+                if pos == len {
+                    // All tests passed
+                    self.progress_bar
+                        .finish_with_message(format!("{} All sample tests passed", check));
+                } else {
+                    self.progress_bar.inc(1);
+                }
+                if diff {
                     self.progress_bar
                         .println(format!("{} Test {} {} ({:.3}s)", check, pos, ac, duration));
-                    if pos == len {
-                        // All tests passed
-                        self.progress_bar
-                            .finish_with_message(format!("{} All sample tests passed", check));
-                    } else {
-                        self.progress_bar.inc(1);
-                    }
-                    return true;
                 } else {
-                    self.progress_bar.set_style(fail_style);
-                    self.progress_bar.abandon_with_message(format!(
-                        "{} Test {} {} ({:.3}s)",
-                        cross, pos, wa, duration
-                    ));
-                    report_diff(&expected, &stdout);
-                    if !stderr.is_empty() {
-                        report_stderr(&stderr);
-                    }
+                    self.progress_bar
+                        .println(format!("{} Test {} {} ({:.3}s)", check, pos, ok, duration));
+                    self.progress_bar.suspend(|| {
+                        if !stdin.is_empty() {
+                            report_stdin(&stdin);
+                        }
+                        report_stdout(&stdout);
+                        if !stderr.is_empty() {
+                            report_stderr(&stderr);
+                        }
+                    });
                 }
-            } else {
-                self.progress_bar
-                    .println(format!("{} Test {} {} ({:.3}s)", check, pos, ok, duration));
-                self.progress_bar.suspend(|| {
-                    if !stdin.is_empty() {
-                        report_stdin(&stdin);
-                    }
-                    report_stdout(&stdout);
-                    if !stderr.is_empty() {
-                        report_stderr(&stderr);
-                    }
-                });
+                return true;
+            }
+            // diff on and WA
+            self.progress_bar.set_style(fail_style);
+            self.progress_bar
+                .abandon_with_message(format!("{} Test {} {} ({:.3}s)", cross, pos, wa, duration));
+            report_diff(&expected, &stdout);
+            if !stderr.is_empty() {
+                report_stderr(&stderr);
             }
         } else {
             self.progress_bar.set_style(fail_style);

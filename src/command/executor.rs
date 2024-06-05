@@ -343,7 +343,9 @@ impl GlobalState {
             spinner.finish(&format!("Run finished (Elapsed: {:.3}s)", duration));
         }
         report_stdout(&stdout);
-        report_stderr(&stderr);
+        if !stderr.is_empty() {
+            report_stderr(&stderr);
+        }
         Ok(())
     }
 
