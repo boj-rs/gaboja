@@ -15,6 +15,24 @@ fn spawn_cmd(cmd: &str) -> Command {
     }
 }
 
+/// Background-running processes do not receive Ctrl+C signal from the parent.
+/// This is necessary to keep geckodriver alive.
+/// On Linux, this is achieved with `<command> &`.
+/// On Windows, CMD's START built-in has `/B` option. https://superuser.com/a/591084 This feature is not tested yet.
+pub(crate) fn spawn_cmd_background(cmd: &str) -> Command {
+    if cfg!(target_os = "windows") {
+        let mut command = Command::new("cmd");
+        let cmd = format!("START /B \"\" {}", cmd);
+        command.arg("/C").arg(&cmd);
+        command
+    } else {
+        let mut command = Command::new("sh");
+        let cmd = format!("{}&", cmd);
+        command.arg("-c").arg(&cmd);
+        command
+    }
+}
+
 fn spawn_cmd_tokio(cmd: &str) -> tokio::process::Command {
     if cfg!(target_os = "windows") {
         let mut command = tokio::process::Command::new("cmd");

@@ -40,17 +40,34 @@ fn main() -> anyhow::Result<()> {
     let mut state = GlobalState::new()?;
 
     loop {
-        if let Ok(cmd) = Input::<InputCommand>::with_theme(&ColorfulTheme::default())
+        let input = Input::<InputCommand>::with_theme(&ColorfulTheme::default())
             .with_prompt("BOJ")
             .history_with(&mut history)
-            .interact_text()
-        {
-            if cmd.is_exit() {
-                state.quit()?;
-                break;
+            .interact_text();
+        match input {
+            Ok(cmd) => {
+                if cmd.is_exit() {
+                    state.quit()?;
+                    break;
+                }
+                if let Err(e) = state.execute(&cmd) {
+                    println!("Error: {}", e);
+                }
+                if state.ctrlc_channel.try_recv().is_ok() {
+                    // consume the ctrlc queue
+                    state.ctrlc_channel.try_iter().count();
+                }
             }
-            if let Err(e) = state.execute(&cmd) {
-                println!("Error: {}", e);
+            Err(err) => {
+                match err {
+                    dialoguer::Error::IO(io_err) => {
+                        if matches!(io_err.kind(), std::io::ErrorKind::Interrupted) {
+                            println!("exit");
+                            state.quit()?;
+                            break;
+                        }
+                    }
+                }
             }
         }
     }

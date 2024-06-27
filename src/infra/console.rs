@@ -234,6 +234,9 @@ impl SubmitProgress {
 impl Drop for SubmitProgress {
     fn drop(&mut self) {
         if !self.progress_bar.is_finished() {
+            // message line is duplicated on any keypress (including Ctrl+C), so remove the message line in template as workaround
+            let style = ProgressStyle::with_template("{bar:40.green}").unwrap();
+            self.progress_bar.set_style(style);
             self.progress_bar.abandon();
         }
     }

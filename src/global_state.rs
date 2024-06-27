@@ -1,6 +1,7 @@
 use crate::data::{BojConfig, Credentials, Preset, Problem, ProblemId};
 use crate::infra::browser::Browser;
 use std::collections::HashMap;
+use std::sync::mpsc::{channel, Receiver};
 
 pub(crate) struct GlobalState {
     pub(crate) credentials: Credentials,
@@ -14,10 +15,15 @@ pub(crate) struct GlobalState {
     pub(crate) browser: Browser,
     pub(crate) problem_cache: HashMap<ProblemId, Problem>,
     pub(crate) presets: HashMap<String, Preset>,
+    pub(crate) ctrlc_channel: Receiver<()>,
 }
 
 impl GlobalState {
     pub(crate) fn new() -> anyhow::Result<Self> {
+        let (sender, receiver) = channel();
+        ctrlc::set_handler(move || {
+            sender.send(()).unwrap();
+        })?;
         let mut state = Self {
             credentials: Credentials {
                 bojautologin: String::new(),
@@ -33,6 +39,7 @@ impl GlobalState {
             browser: Browser::new()?,
             problem_cache: HashMap::new(),
             presets: HashMap::new(),
+            ctrlc_channel: receiver,
         };
         // println!("state initialized");
         match BojConfig::from_config() {

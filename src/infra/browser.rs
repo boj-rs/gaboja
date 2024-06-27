@@ -1,14 +1,14 @@
 use crate::data::{ExampleIO, Problem, ProblemId, ProblemKind};
 use crate::infra::console::Spinner;
+use crate::infra::subprocess::{spawn_cmd_background, run_silent};
 use std::future::Future;
-use std::process::{Child, Command, Stdio};
+use std::process::Stdio;
 use thirtyfour::common::cookie::SameSite;
 use thirtyfour::prelude::*;
 use tokio::runtime;
 
 /// Takes care of interaction with BOJ pages. Internally uses headless Firefox and geckodriver.
 pub(crate) struct Browser {
-    geckodriver: Child,
     webdriver: WebDriver,
 }
 
@@ -28,7 +28,7 @@ impl Browser {
     pub(crate) fn new() -> anyhow::Result<Self> {
         with_async_runtime(async {
             let spinner = Spinner::new("Starting geckodriver...");
-            let geckodriver = Command::new("geckodriver")
+            spawn_cmd_background("geckodriver")
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
                 .spawn()?;
@@ -57,7 +57,6 @@ impl Browser {
 
             spinner.finish("Browser initialization complete");
             Ok(Self {
-                geckodriver,
                 webdriver,
             })
         })
@@ -220,12 +219,8 @@ impl Browser {
     /// Gracefully terminate the browser. Should be called even on error.
     pub(crate) fn quit(self) -> anyhow::Result<()> {
         with_async_runtime(async {
-            let Self {
-                mut geckodriver,
-                webdriver,
-            } = self;
-            webdriver.quit().await?;
-            geckodriver.kill()?;
+            self.webdriver.quit().await?;
+            run_silent("kill $(pidof geckodriver)").ok();
             Ok(())
         })
     }

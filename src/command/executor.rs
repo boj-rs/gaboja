@@ -372,12 +372,16 @@ impl GlobalState {
 
         let spinner = Spinner::new("Submitting code...");
         self.browser.submit_solution(prob, &source, lang)?;
-        spinner.finish("Code submitted.");
+        spinner.finish("Code submitted. Press Ctrl+C to stop watching submission status.");
 
         let submit_progress = SubmitProgress::new();
         loop {
             let (status_text, status_class) = self.browser.get_submission_status()?;
             if submit_progress.update(&status_text, &status_class) {
+                break;
+            }
+            if self.ctrlc_channel.try_recv().is_ok() {
+                self.ctrlc_channel.try_iter().count();
                 break;
             }
         }
@@ -417,4 +421,9 @@ help
     Display this help.
 exit
     Exit the program.
+$ <shell cmd>
+    Run an arbitrary shell command.
+^C
+    During build/run/test, kill the running program.
+    During submit, stop watching the submission status.
 ";

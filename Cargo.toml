@@ -1,6 +1,6 @@
 [package]
 name = "gaboja"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "Gaboja: CLI helper for solving BOJ problems"
@@ -15,6 +15,7 @@ categories = ["command-line-utilities"]
 [dependencies]
 anyhow = "1.0.82"
 console = "0.15.8"
+ctrlc = "3.4.4"
 dialoguer = { version = "0.11.0", features = ["history"], default-features = false }
 indicatif = "0.17.8"
 once_cell = "1.19.0"
