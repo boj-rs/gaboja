@@ -220,7 +220,11 @@ impl Browser {
     pub(crate) fn quit(self) -> anyhow::Result<()> {
         with_async_runtime(async {
             self.webdriver.quit().await?;
-            run_silent("kill $(pidof geckodriver)").ok();
+            if cfg!(target_os = "windows") {
+                run_silent("for /f tokens^=2 %a in ('tasklist ^| findstr geckodriver') do @taskkill /PID %a /F").ok();
+            } else {
+                run_silent("kill $(pidof geckodriver)").ok();
+            }
             Ok(())
         })
     }
