@@ -22,7 +22,7 @@ fn spawn_cmd(cmd: &str) -> Command {
 pub(crate) fn spawn_cmd_background(cmd: &str) -> Command {
     if cfg!(target_os = "windows") {
         let mut command = Command::new("cmd");
-        let cmd = format!("START /B \"\" {}", cmd);
+        let cmd = format!("START /B {}", cmd);
         command.arg("/C").arg(&cmd);
         command
     } else {
