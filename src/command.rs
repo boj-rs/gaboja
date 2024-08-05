@@ -60,6 +60,9 @@ pub(crate) enum Command {
     Help,
     Exit,
     Shell(String),
+    DebugCache,
+    DebugScreenshot,
+    DebugSource,
 }
 
 #[derive(Debug, Clone)]

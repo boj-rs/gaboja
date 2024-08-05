@@ -317,6 +317,9 @@ impl std::str::FromStr for Command {
                 Ok(Self::Exit)
             }
             "help" => Ok(Self::Help),
+            "debugcache" => Ok(Self::DebugCache),
+            "debugscreenshot" => Ok(Self::DebugScreenshot),
+            "debugsource" => Ok(Self::DebugSource),
             _ => Err(CommandParseError {
                 msg: format!("Unknown command `{}`", main_cmd),
             }),

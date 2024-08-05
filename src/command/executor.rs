@@ -167,6 +167,16 @@ impl GlobalState {
             Command::Shell(shell_cmd) => {
                 run_interactive(shell_cmd)?;
             }
+            Command::DebugCache => {
+                println!("{:?}", self.problem_cache);
+            }
+            Command::DebugScreenshot => {
+                self.browser.screenshot()?;
+            }
+            Command::DebugSource => {
+                let source = self.browser.source()?;
+                std::fs::write("./source", &source)?;
+            }
         }
         Ok(())
     }

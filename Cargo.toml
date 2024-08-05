@@ -1,6 +1,6 @@
 [package]
 name = "gaboja"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 license = "MIT"
 description = "Gaboja: CLI helper for solving BOJ problems"
@@ -23,6 +23,6 @@ regex = "1.10.4"
 serde = "1.0.203"
 serde_json = "1.0.117"
 similar = { version = "2.5.0", features = ["inline"] }
-thirtyfour = "0.32.0"
+thirtyfour = "0.33.0"
 tokio = { version = "1.37.0", features = ["time", "process", "rt"] }
 toml = "0.8.13"

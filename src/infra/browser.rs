@@ -2,6 +2,7 @@ use crate::data::{ExampleIO, Problem, ProblemId, ProblemKind};
 use crate::infra::console::Spinner;
 use crate::infra::subprocess::{spawn_cmd_background, run_silent};
 use std::future::Future;
+use std::path::Path;
 use std::process::Stdio;
 use thirtyfour::common::cookie::SameSite;
 use thirtyfour::prelude::*;
@@ -103,6 +104,10 @@ impl Browser {
             let driver = &self.webdriver;
             let problem_page = problem_id.problem_url();
             driver.get(problem_page).await?;
+            let fc_cta_consent = driver.find_all(By::ClassName("fc-cta-consent")).await?;
+            if let Some(cta_el) = fc_cta_consent.first() {
+                cta_el.click().await?;
+            }
             let title = driver.find(By::Id("problem_title")).await?.text().await?;
             let label_elems = driver.find_all(By::ClassName("problem-label")).await?;
             let mut kind = vec![];
@@ -213,6 +218,22 @@ impl Browser {
             let status = elem_status.text().await?.to_string();
             let class = elem_status.class_name().await?.unwrap_or(String::new());
             Ok((status, class))
+        })
+    }
+
+    pub(crate) fn screenshot(&self) -> anyhow::Result<()> {
+        with_async_runtime(async {
+            let driver = &self.webdriver;
+            driver.screenshot(Path::new("./screenshot.png")).await?;
+            Ok(())
+        })
+    }
+
+    pub(crate) fn source(&self) -> anyhow::Result<String> {
+        with_async_runtime(async {
+            let driver = &self.webdriver;
+            let source = driver.source().await?;
+            Ok(source)
         })
     }
 
